@@ -1,70 +1,122 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_birmingham_hub/features/agenda/models/public_event_model.dart';
+import 'package:flutter_birmingham_hub/features/agenda/models/public_agenda_item_model.dart';
+import 'package:flutter_birmingham_hub/features/agenda/providers/agenda_providers.dart';
+import 'package:flutter_birmingham_hub/features/agenda/widgets/agenda_item_card.dart';
+import 'package:flutter_birmingham_hub/features/agenda/widgets/event_selection_card.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
-class AgendaScreen extends StatelessWidget {
+class AgendaScreen extends ConsumerWidget {
   const AgendaScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedEventId = ref.watch(selectedEventIdProvider);
+    final eventsAsync = ref.watch(publishedEventsProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Agenda'),
       ),
       body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 800),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.calendar_today,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
+                // Header
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Event Agenda',
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        Text(
+                          'Select an event to view its agenda',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
+                
+                // Event selection
                 Text(
-                  'Event Agenda',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  'Upcoming Events',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Schedule for upcoming events',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
+                
+                eventsAsync.when(
+                  data: (events) {
+                    if (events.isEmpty) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: Text('No upcoming events found'),
+                        ),
+                      );
+                    }
+                    
+                    return SizedBox(
+                      height: 180,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: events.length,
+                        itemBuilder: (context, index) {
+                          final event = events[index];
+                          final isSelected = event.id == selectedEventId;
+                          
+                          return EventSelectionCard(
+                            event: event,
+                            isSelected: isSelected,
+                            onTap: () {
+                              ref.read(selectedEventIdProvider.notifier).state = event.id;
+                            },
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                  error: (error, _) => Center(
+                    child: Text('Error: $error'),
+                  ),
                 ),
+                
                 const SizedBox(height: 32),
-                _AgendaItem(
-                  time: '09:00 - 09:30',
-                  title: 'Registration & Coffee',
-                  speaker: '',
-                  description: 'Welcome and networking',
-                ),
-                _AgendaItem(
-                  time: '09:30 - 10:30',
-                  title: 'Building Responsive UIs',
-                  speaker: 'Jane Doe',
-                  description: 'Learn how to create beautiful responsive interfaces',
-                ),
-                _AgendaItem(
-                  time: '10:45 - 11:45',
-                  title: 'State Management Best Practices',
-                  speaker: 'John Smith',
-                  description: 'Deep dive into Riverpod and state management patterns',
-                ),
-                _AgendaItem(
-                  time: '12:00 - 13:00',
-                  title: 'Lunch Break',
-                  speaker: '',
-                  description: 'Networking and refreshments',
-                ),
-                _AgendaItem(
-                  time: '13:00 - 14:00',
-                  title: 'Flutter Web Performance',
-                  speaker: 'Alice Johnson',
-                  description: 'Optimizing Flutter apps for the web',
-                ),
+                
+                // Agenda items
+                if (selectedEventId != null) ...[                
+                  _buildAgendaSection(context, ref, selectedEventId),
+                ] else ...[                
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: Text('Select an event to view its agenda'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -72,86 +124,217 @@ class AgendaScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-class _AgendaItem extends StatelessWidget {
-  final String time;
-  final String title;
-  final String speaker;
-  final String description;
-
-  const _AgendaItem({
-    required this.time,
-    required this.title,
-    required this.speaker,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 100,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                time,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+  Widget _buildAgendaSection(BuildContext context, WidgetRef ref, String eventId) {
+    final eventAsync = ref.watch(eventByIdProvider(eventId));
+    final agendaItemsAsync = ref.watch(agendaItemsProvider(eventId));
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Event details
+        eventAsync.when(
+          data: (event) {
+            if (event == null) {
+              return const SizedBox.shrink();
+            }
+            
+            final dateFormat = DateFormat('EEEE, MMMM d, yyyy');
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${dateFormat.format(event.startDate)} at ${event.venue}',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (event.venueAddress != null && event.venueAddress!.isNotEmpty) ...[                
                   Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  if (speaker.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.person,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          speaker,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.secondary,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    event.venueAddress!,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
-              ),
-            ),
-          ],
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    context.go('/agenda/$eventId');
+                  },
+                  icon: const Icon(Icons.share),
+                  label: const Text('Share this agenda'),
+                ),
+                const Divider(height: 32),
+              ],
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, _) => Center(
+            child: Text('Error: $error'),
+          ),
         ),
+        
+        // Agenda items
+        Text(
+          'Schedule',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 16),
+        
+        agendaItemsAsync.when(
+          data: (agendaItems) {
+            if (agendaItems.isEmpty) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Text('No agenda items available for this event yet'),
+                ),
+              );
+            }
+            
+            // Group items by track
+            final Map<int?, List<PublicAgendaItem>> itemsByTrack = {};
+            for (final item in agendaItems) {
+              if (!itemsByTrack.containsKey(item.trackNumber)) {
+                itemsByTrack[item.trackNumber] = [];
+              }
+              itemsByTrack[item.trackNumber]!.add(item);
+            }
+            
+            // Sort tracks
+            final sortedTracks = itemsByTrack.keys.toList()
+              ..sort((a, b) {
+                if (a == null) return -1;
+                if (b == null) return 1;
+                return a.compareTo(b);
+              });
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: sortedTracks.map((trackNumber) {
+                final trackItems = itemsByTrack[trackNumber]!;
+                
+                // Sort items by start time
+                trackItems.sort((a, b) => a.startTime.compareTo(b.startTime));
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        trackNumber == null ? 'Main Track' : 'Track $trackNumber',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: trackItems.length,
+                      itemBuilder: (context, index) {
+                        final item = trackItems[index];
+                        return AgendaItemCard(
+                          item: item,
+                          onTapSpeaker: item.speakerId != null
+                              ? () => context.go('/speakers/${item.speakerId}')
+                              : null,
+                          onTapTalk: item.talkId != null
+                              ? () => _showTalkDetails(context, ref, item.talkId!)
+                              : null,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              }).toList(),
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, _) => Center(
+            child: Text('Error: $error'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showTalkDetails(BuildContext context, WidgetRef ref, String talkId) {
+    final talkAsync = ref.watch(talkDetailsProvider(talkId));
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Talk Details'),
+        content: talkAsync.when(
+          data: (talk) {
+            if (talk == null) {
+              return const Text('Talk not found');
+            }
+            
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    talk['title'] as String,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Level: ${talk['level'] ?? 'Not specified'}'),
+                  Text('Duration: ${talk['durationMinutes'] ?? '30'} minutes'),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Description:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(talk['description'] as String? ?? 'No description available'),
+                  const SizedBox(height: 16),
+                  if (talk['tags'] != null) ...[                  
+                    const Text(
+                      'Tags:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: (talk['tags'] as List<dynamic>?)
+                              ?.map((tag) => Chip(label: Text(tag.toString())))
+                              .toList() ??
+                          [],
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+          loading: () => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          error: (error, _) => Text('Error: $error'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }

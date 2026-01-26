@@ -1,17 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_birmingham_hub/features/feedback/widgets/event_selection_widget.dart';
+import 'package:flutter_birmingham_hub/features/feedback/widgets/talk_selection_widget.dart';
+import 'package:flutter_birmingham_hub/features/feedback/widgets/feedback_form_widget.dart';
+import 'package:flutter_birmingham_hub/features/feedback/providers/feedback_providers.dart';
+import 'package:flutter_birmingham_hub/features/agenda/providers/agenda_providers.dart';
 
-class FeedbackScreen extends StatefulWidget {
+class FeedbackScreen extends ConsumerStatefulWidget {
   const FeedbackScreen({super.key});
 
   @override
-  State<FeedbackScreen> createState() => _FeedbackScreenState();
+  ConsumerState<FeedbackScreen> createState() => _FeedbackScreenState();
 }
 
-class _FeedbackScreenState extends State<FeedbackScreen> {
-  double _rating = 3.0;
+class _FeedbackScreenState extends ConsumerState<FeedbackScreen> {
+  bool _showSuccessMessage = false;
+
+  void _resetForm() {
+    setState(() {
+      _showSuccessMessage = true;
+    });
+    ref.read(selectedFeedbackTalkIdProvider.notifier).state = null;
+    
+    // Hide success message after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() {
+          _showSuccessMessage = false;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final selectedEventId = ref.watch(selectedFeedbackEventIdProvider);
+    final selectedTalkId = ref.watch(selectedFeedbackTalkIdProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Feedback'),
@@ -20,106 +45,122 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: const BoxConstraints(maxWidth: 800),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.feedback,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Share Your Feedback',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                // Header
+                Row(
+                  children: [
+                    Icon(
+                      Icons.feedback,
+                      size: 40,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Share Your Feedback',
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            'Help us improve by sharing your thoughts on the talks',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
                       ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Help us improve by sharing your thoughts and experiences',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 32),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                
+                // Success message
+                if (_showSuccessMessage)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade300),
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          'Rate Your Experience',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thank you for your feedback!',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green.shade700,
+                                ),
                               ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(5, (index) {
-                            return IconButton(
-                              icon: Icon(
-                                index < _rating ? Icons.star : Icons.star_border,
-                                size: 40,
-                              ),
-                              color: Theme.of(context).colorScheme.tertiary,
-                              onPressed: () {
-                                setState(() {
-                                  _rating = index + 1.0;
-                                });
-                              },
-                            );
-                          }),
-                        ),
-                        const SizedBox(height: 24),
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Session/Talk Title',
-                            hintText: 'Which session are you reviewing?',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Your Name (Optional)',
-                            hintText: 'Enter your name',
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Comments',
-                            hintText: 'Share your thoughts...',
-                            alignLabelWithHint: true,
-                          ),
-                          maxLines: 5,
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () {
-                            // TODO: Implement feedback submission
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Thank you for your feedback!'),
-                              ),
-                            );
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.all(12.0),
-                            child: Text('Submit Feedback'),
+                              const Text('Your input helps us improve future events.'),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
+                
+                // Step 1: Event Selection
+                const EventSelectionWidget(),
+                const SizedBox(height: 32),
+                
+                // Step 2: Talk Selection (only shown if event is selected)
+                if (selectedEventId != null) ...[                
+                  const TalkSelectionWidget(),
+                  const SizedBox(height: 32),
+                ],
+                
+                // Step 3: Feedback Form (only shown if talk is selected)
+                if (selectedTalkId != null && selectedEventId != null) ...[                
+                  _buildFeedbackForm(selectedEventId, selectedTalkId),
+                ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildFeedbackForm(String eventId, String talkId) {
+    // Get talk details
+    final talkAsync = ref.watch(agendaItemsProvider(eventId));
+    
+    return talkAsync.when(
+      data: (agendaItems) {
+        final selectedTalk = agendaItems.firstWhere(
+          (item) => item.id == talkId,
+          orElse: () => throw Exception('Talk not found'),
+        );
+        
+        return FeedbackFormWidget(
+          talkId: talkId,
+          speakerId: selectedTalk.speakerId,
+          eventId: eventId,
+          talkTitle: selectedTalk.title,
+          onSubmitSuccess: _resetForm,
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(),
+      ),
+      error: (error, _) => Center(
+        child: Text('Error: $error'),
       ),
     );
   }
